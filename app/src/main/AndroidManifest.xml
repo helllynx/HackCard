@@ -4,6 +4,7 @@
     package="org.hack.card">
 
     <uses-permission android:name="android.permission.NFC" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

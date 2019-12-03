@@ -1,15 +1,16 @@
 package org.hack.card
 
+//import java.text.DateFormat
 import android.nfc.Tag
 import android.nfc.tech.MifareClassic
 import android.os.Environment
 import java.io.*
-import java.lang.Math.pow
-//import java.text.DateFormat
 import java.util.*
 import kotlin.experimental.and
+import kotlin.math.floor
+import kotlin.math.pow
 
-class Dump(// raw
+open class Dump(// raw
     var uid: ByteArray, var data: Array<ByteArray>
 ) {
     // parsed
@@ -63,8 +64,8 @@ class Dump(// raw
         if (!Arrays.equals(tag.id, uid)) {
             throw IOException(
                 "Card UID mismatch:"
-//                        + toString(tag.id.toHex()) + " (card) != "
-//                        + toString(uid) + " (dump)"
+                        + tag.id.toHex() + " (card) != "
+                        + uid.toHex() + " (dump)"
             )
         }
         val numBlocksToWrite =
@@ -235,17 +236,17 @@ class Dump(// raw
         @JvmStatic
         fun formatCardNumber(cardNumber: Int): String {
             val cardNum3 = cardNumber % 1000
-            val cardNum2 = Math.floor(cardNumber / 1000.toDouble()).toInt() % 1000
-            val cardNum1 = Math.floor(cardNumber / 1000000.toDouble()).toInt() % 1000
+            val cardNum2 = floor(cardNumber / 1000.toDouble()).toInt() % 1000
+            val cardNum1 = floor(cardNumber / 1000000.toDouble()).toInt() % 1000
             return String.format("%04d %03d %03d", cardNum1, cardNum2, cardNum3)
         }
 
         protected fun intval(vararg bytes: Byte): Int {
             var value = 0
-            for (i in 0 until bytes.size) {
+            for (i in bytes.indices) {
                 var x = bytes[bytes.size - i - 1].toInt()
-                while (x < 0) x = 256 + x
-                value += x * pow(0x100.toDouble(), i.toDouble()).toInt()
+                while (x < 0) x += 256
+                value += x * 0x100.toDouble().pow(i.toDouble()).toInt()
             }
             return value
         }

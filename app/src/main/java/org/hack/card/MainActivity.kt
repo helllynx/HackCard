@@ -14,7 +14,6 @@ import android.nfc.Tag
 import android.nfc.tech.MifareClassic
 import android.os.Bundle
 import android.view.Menu
-import android.view.MenuItem
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -30,14 +29,20 @@ class MainActivity : AppCompatActivity() {
     private var dump: Dump? = null
     private var writeMode = false
     private var pendingWriteDialog: ProgressDialog? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 //        val toolbar: Toolbar = findViewById(R.id.toolbar) as Toolbar
 //        setSupportActionBar(toolbar)
-        if (!nfcAdapter.isEnabled) {
-            info.setText(R.string.error_nfc_is_disabled)
+        try {
+            if (!nfcAdapter.isEnabled) {
+                info.setText(R.string.error_nfc_is_disabled)
+            }
+        } catch (e: Exception) {
+            info.setText(R.string.error_nfc_not_available)
         }
+
         pendingWriteDialog = ProgressDialog(this@MainActivity)
         pendingWriteDialog?.isIndeterminate = true
         pendingWriteDialog?.setMessage("Waiting for card...")
@@ -62,10 +67,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu?): Boolean { // Inflate the menu; this adds items to the action bar if it is present.
 //getMenuInflater().inflate(R.menu.menu_main, menu);
         return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
-        return super.onOptionsItemSelected(item)
     }
 
     override fun onResume() {
@@ -107,7 +108,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIntent(intent: Intent) {
-        info?.text = ""
+        info.text = ""
         val dumpsDir = applicationContext.getExternalFilesDir(null)
         val action = intent.action
         var shouldSave = false
@@ -118,20 +119,20 @@ class MainActivity : AppCompatActivity() {
                 )
                 if (writeMode && dump != null) {
                     pendingWriteDialog?.hide()
-                    info?.append("Writing to card...")
+                    info.append("Writing to card...")
                     dump?.write(tag)
                 } else {
-                    info?.append("Reading from card...")
+                    info.append("Reading from card...")
                     dump = Dump.fromTag(tag)
                     shouldSave = true
                 }
             } else if (INTENT_READ_DUMP == action) {
                 val file = File(dumpsDir, intent.getStringExtra("filename"))
-                info?.append("Reading from file...")
+                info.append("Reading from file...")
                 dump = Dump.fromFile(file)
             }
-            info?.append("\nCard UID: " + dump?.uidAsString)
-            info?.append("\n\n  --- Sector #8: ---\n")
+            info.append("\nCard UID: " + dump?.uidAsString)
+            info.append("\n\n  --- Sector #8: ---\n")
             val blocks = dump?.dataAsStrings
             if (blocks != null) {
                 for (i in blocks.indices) {
@@ -139,20 +140,20 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             info.append("\n\n  --- Extracted data: ---\n")
-            info?.append("\nCard number:      " + dump?.cardNumberAsString)
-            info?.append("\nCurrent balance:  " + dump?.balanceAsString)
-//            info?.append("\nLast usage date:  " + dump?.lastUsageDateAsString)
-            info?.append("\nLast validator:   " + dump?.lastValidatorIdAsString)
+            info.append("\nCard number:      " + dump?.cardNumberAsString)
+            info.append("\nCurrent balance:  " + dump?.balanceAsString)
+//            info.append("\nLast usage date:  " + dump?.lastUsageDateAsString)
+            info.append("\nLast validator:   " + dump?.lastValidatorIdAsString)
             if (shouldSave) {
-                info?.append("\n\n Saving dump ... ")
+                info.append("\n\n Saving dump ... ")
                 val save = dumpsDir?.let { dump?.save(it) }
-                info?.append("\n " + save?.canonicalPath)
+                info.append("\n " + save?.canonicalPath)
             }
             if (writeMode) {
-                info?.append("\n\n Successfully wrote this dump!")
+                info.append("\n\n Successfully wrote this dump!")
             }
         } catch (e: IOException) {
-            info?.append("\nError: \n$e")
+            info.append("\nError: \n$e")
             dump = null
         } finally {
             if (writeMode) {
@@ -164,7 +165,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val REQUEST_OPEN_DUMP = 1
-        const val INTENT_READ_DUMP = "cc.troikadumper.INTENT_READ_DUMP"
+        const val INTENT_READ_DUMP = "org.hack.card.INTENT_READ_DUMP"
         /**
          * @param activity The corresponding [Activity] requesting the foreground dispatch.
          * @param adapter The [NfcAdapter] used for the foreground dispatch.
