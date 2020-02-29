@@ -26,7 +26,7 @@ class MainActivity : AppCompatActivity() {
     private var btnWrite: FloatingActionButton? = null
     private val info: TextView by lazy { ActivityCompat.requireViewById<TextView>(this, R.id.textView) }
     private val nfcAdapter: NfcAdapter by lazy { (this.getSystemService(Context.NFC_SERVICE) as NfcManager).defaultAdapter }
-    private var dump: Dump? = null
+    private lateinit var dump: Dump
     private var writeMode = false
     private var pendingWriteDialog: ProgressDialog? = null
 
@@ -113,48 +113,55 @@ class MainActivity : AppCompatActivity() {
         val action = intent.action
         var shouldSave = false
         try {
-            if (NfcAdapter.ACTION_TECH_DISCOVERED == action) {
+            if (action == NfcAdapter.ACTION_TECH_DISCOVERED) {
                 val tag = intent.getParcelableExtra<Tag>(
                     NfcAdapter.EXTRA_TAG
                 )
-                if (writeMode && dump != null) {
+                if (writeMode && dump.data.isNotEmpty()) {
                     pendingWriteDialog?.hide()
                     info.append("Writing to card...")
-                    dump?.write(tag)
+                    tag?.run {
+                        dump.write(this)
+                    }
                 } else {
                     info.append("Reading from card...")
-                    dump = Dump.fromTag(tag)
+                    tag?.run {
+                        dump = Dump.fromTag(this)
+                    }
                     shouldSave = true
                 }
-            } else if (INTENT_READ_DUMP == action) {
-                val file = File(dumpsDir, intent.getStringExtra("filename"))
-                info.append("Reading from file...")
-                dump = Dump.fromFile(file)
-            }
-            info.append("\nCard UID: " + dump?.uidAsString)
-            info.append("\n\n  --- Sector #8: ---\n")
-            val blocks = dump?.dataAsStrings
-            if (blocks != null) {
-                for (i in blocks.indices) {
-                    info.append("\n" + i + "] " + (blocks[i] ?: ""))
+            } else if (action == INTENT_READ_DUMP) {
+                intent.getStringExtra("filename")?.run {
+                    val file = File(dumpsDir, this)
+                    info.append("Reading from file...")
+                    dump = Dump.fromFile(file)
                 }
             }
-            info.append("\n\n  --- Extracted data: ---\n")
-            info.append("\nCard number:      " + dump?.cardNumberAsString)
-            info.append("\nCurrent balance:  " + dump?.balanceAsString)
+            if (dump.data.isNotEmpty()) {
+                info.append("\nCard UID: " + dump.uidAsString)
+                info.append("\n\n  --- Sector #8: ---\n")
+                val blocks = dump.dataAsStrings
+                for (i in blocks.indices) {
+                    info.append("\n" + i + "] " + (blocks[i]))
+                }
+                info.append("\n\n  --- Extracted data: ---\n")
+                info.append("\nCard number:      " + dump.cardNumberAsString)
+                info.append("\nCurrent balance:  " + dump.balanceAsString)
 //            info.append("\nLast usage date:  " + dump?.lastUsageDateAsString)
-            info.append("\nLast validator:   " + dump?.lastValidatorIdAsString)
-            if (shouldSave) {
-                info.append("\n\n Saving dump ... ")
-                val save = dumpsDir?.let { dump?.save(it) }
-                info.append("\n " + save?.canonicalPath)
-            }
-            if (writeMode) {
-                info.append("\n\n Successfully wrote this dump!")
+                info.append("\nLast validator:   " + dump.lastValidatorIdAsString)
+                if (shouldSave) {
+                    info.append("\n\n Saving dump ... ")
+                    val save = dumpsDir?.let { dump.save(it) }
+                    info.append("\n " + save?.canonicalPath)
+                }
+
+                if (writeMode) {
+                    info.append("\n\n Successfully wrote this dump!")
+                }
             }
         } catch (e: IOException) {
             info.append("\nError: \n$e")
-            dump = null
+            dump = Dump(byteArrayOf(), emptyArray())
         } finally {
             if (writeMode) {
                 writeMode = false

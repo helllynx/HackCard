@@ -1,6 +1,5 @@
 package org.hack.card
 
-//import java.text.DateFormat
 import android.nfc.Tag
 import android.nfc.tech.MifareClassic
 import android.os.Environment
@@ -10,20 +9,23 @@ import kotlin.experimental.and
 import kotlin.math.floor
 import kotlin.math.pow
 
-open class Dump(// raw
+class Dump(
     var uid: ByteArray, var data: Array<ByteArray>
 ) {
     // parsed
     var cardNumber = 0
-        protected set
+        private set
     var balance = 0
-        protected set
-//    var lastUsageDate: Date? = null
+        private set
+    //    var lastUsageDate: Date? = null
 //        protected set
     var lastValidatorId = 0
-        protected set
+        private set
 
-    protected fun parse() { // block#0 bytes#3-6
+    private fun parse() { // block#0 bytes#3-6
+        if (data.isEmpty())
+            return
+
         cardNumber = intval(
             data[0][3],
             data[0][4],
@@ -55,7 +57,7 @@ open class Dump(// raw
             (data[1][8] and 15),
             data[1][9],  //  87654321
             (data[1][10] and 248.toByte())
-        ) / 200
+        ) / 0xC8
     }
 
     @Throws(IOException::class)
@@ -99,7 +101,7 @@ open class Dump(// raw
         return file
     }
 
-    protected fun makeFilename(): String {
+    private fun makeFilename(): String {
         val now = Date()
         return String.format(
             FILENAME_FORMAT,
@@ -112,13 +114,11 @@ open class Dump(// raw
     val uidAsString: String
         get() = uid.toHex()
 
-    val dataAsStrings: Array<String?>
+    val dataAsStrings: List<String>
         get() {
-            val blocks = arrayOfNulls<String>(data.size)
-            for (i in data.indices) {
-                blocks[i] = data[i].toHex()
+            return data.map {
+                it.toHex()
             }
-            return blocks
         }
 
 //    val lastUsageDateAsString: String
@@ -147,9 +147,9 @@ open class Dump(// raw
         const val FILENAME_REGEXP =
             "([0-9]{4})-([0-9]{2})-([0-9]{2})_([0-9]{6})_([0-9]+)_([0-9]+)RUB.txt"
         const val BLOCK_COUNT = 4
-        const val BLOCK_SIZE = MifareClassic.BLOCK_SIZE
+        private const val BLOCK_SIZE = MifareClassic.BLOCK_SIZE
         const val SECTOR_INDEX = 8
-        val KEY_B = byteArrayOf(
+        private val KEY_B = byteArrayOf(
             0xE3.toByte(),
             0x51.toByte(),
             0x73.toByte(),
@@ -157,7 +157,7 @@ open class Dump(// raw
             0x4A.toByte(),
             0x81.toByte()
         )
-        val KEY_A = byteArrayOf(
+        private val KEY_A = byteArrayOf(
             0xA7.toByte(),
             0x3F.toByte(),
             0x5D.toByte(),
@@ -165,7 +165,7 @@ open class Dump(// raw
             0xD3.toByte(),
             0x33.toByte()
         )
-        val KEY_0 = byteArrayOf(
+        private val KEY_0 = byteArrayOf(
             0x00.toByte(),
             0x00.toByte(),
             0x00.toByte(),
@@ -191,7 +191,7 @@ open class Dump(// raw
         }
 
         @Throws(IOException::class)
-        fun fromFile(file: File?): Dump {
+        fun fromFile(file: File): Dump {
             val fs = FileInputStream(file)
             val scanner = Scanner(fs, "US-ASCII")
             val uid = scanner.nextLine().hexStringToByteArray()
@@ -205,7 +205,7 @@ open class Dump(// raw
         }
 
         @Throws(IOException::class)
-        protected fun getMifareClassic(tag: Tag?): MifareClassic {
+        private fun getMifareClassic(tag: Tag?): MifareClassic {
             val mfc = MifareClassic.get(tag)
             mfc.connect()
             // fucked up card
@@ -230,7 +230,7 @@ open class Dump(// raw
             ) {
                 return mfc
             }
-            throw IOException("No permissions")
+            throw IOException("No permissions, fucked up card!")
         }
 
         @JvmStatic
@@ -241,7 +241,7 @@ open class Dump(// raw
             return String.format("%04d %03d %03d", cardNum1, cardNum2, cardNum3)
         }
 
-        protected fun intval(vararg bytes: Byte): Int {
+        private fun intval(vararg bytes: Byte): Int {
             var value = 0
             for (i in bytes.indices) {
                 var x = bytes[bytes.size - i - 1].toInt()
