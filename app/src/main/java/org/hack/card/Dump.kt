@@ -2,7 +2,9 @@ package org.hack.card
 
 import android.nfc.Tag
 import android.nfc.tech.MifareClassic
+import android.os.Build
 import android.os.Environment
+import androidx.annotation.RequiresApi
 import java.io.*
 import java.util.*
 import kotlin.experimental.and
@@ -147,6 +149,7 @@ class Dump(
         const val FILENAME_REGEXP =
             "([0-9]{4})-([0-9]{2})-([0-9]{2})_([0-9]{6})_([0-9]+)_([0-9]+)RUB.txt"
         const val BLOCK_COUNT = 4
+        @RequiresApi(Build.VERSION_CODES.GINGERBREAD_MR1)
         private const val BLOCK_SIZE = MifareClassic.BLOCK_SIZE
         const val SECTOR_INDEX = 8
         private val KEY_B = byteArrayOf(
