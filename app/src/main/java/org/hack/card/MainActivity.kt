@@ -26,7 +26,7 @@ class MainActivity : AppCompatActivity() {
     private var btnWrite: FloatingActionButton? = null
     private val info: TextView by lazy { ActivityCompat.requireViewById<TextView>(this, R.id.textView) }
     private val nfcAdapter: NfcAdapter by lazy { (this.getSystemService(Context.NFC_SERVICE) as NfcManager).defaultAdapter }
-    private lateinit var dump: Dump
+    private lateinit var cardDump: Dump
     private var writeMode = false
     private var pendingWriteDialog: ProgressDialog? = null
 
@@ -117,16 +117,16 @@ class MainActivity : AppCompatActivity() {
                 val tag = intent.getParcelableExtra<Tag>(
                     NfcAdapter.EXTRA_TAG
                 )
-                if (writeMode && dump.data.isNotEmpty()) {
+                if (writeMode && cardDump.data.isNotEmpty()) {
                     pendingWriteDialog?.hide()
                     info.append("Writing to card...")
                     tag?.run {
-                        dump.write(this)
+                        cardDump.write(this)
                     }
                 } else {
                     info.append("Reading from card...")
                     tag?.run {
-                        dump = Dump.fromTag(this)
+                        cardDump = Dump.fromTag(this)
                     }
                     shouldSave = true
                 }
@@ -134,24 +134,29 @@ class MainActivity : AppCompatActivity() {
                 intent.getStringExtra("filename")?.run {
                     val file = File(dumpsDir, this)
                     info.append("Reading from file...")
-                    dump = Dump.fromFile(file)
+                    cardDump = Dump.fromFile(file)
                 }
             }
-            if (dump.data.isNotEmpty()) {
-                info.append("\nCard UID: " + dump.uidAsString)
+            if (cardDump.data.isNotEmpty()) {
+
+                cardDump.data.forEach {
+                    if (it.size < 16) throw IOException("Bad read")
+                }
+
+                info.append("\nCard UID: " + cardDump.uidAsString)
                 info.append("\n\n  --- Sector #8: ---\n")
-                val blocks = dump.dataAsStrings
+                val blocks = cardDump.dataAsStrings
                 for (i in blocks.indices) {
                     info.append("\n" + i + "] " + (blocks[i]))
                 }
                 info.append("\n\n  --- Extracted data: ---\n")
-                info.append("\nCard number:      " + dump.cardNumberAsString)
-                info.append("\nCurrent balance:  " + dump.balanceAsString)
+                info.append("\nCard number:      " + cardDump.cardNumberAsString)
+                info.append("\nCurrent balance:  " + cardDump.balanceAsString)
 //            info.append("\nLast usage date:  " + dump?.lastUsageDateAsString)
-                info.append("\nLast validator:   " + dump.lastValidatorIdAsString)
+                info.append("\nLast validator:   " + cardDump.lastValidatorIdAsString)
                 if (shouldSave) {
                     info.append("\n\n Saving dump ... ")
-                    val save = dumpsDir?.let { dump.save(it) }
+                    val save = dumpsDir?.let { cardDump.save(it) }
                     info.append("\n " + save?.canonicalPath)
                 }
 
@@ -161,13 +166,13 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: IOException) {
             info.append("\nError: \n$e")
-            dump = Dump(byteArrayOf(), emptyArray())
+            cardDump = Dump(byteArrayOf(), emptyArray())
         } finally {
             if (writeMode) {
                 writeMode = false
             }
         }
-        (if (dump == null) btnWrite?.hide() else btnWrite?.show())
+        (if (cardDump.data.isEmpty()) btnWrite?.hide() else btnWrite?.show())
     }
 
     companion object {

@@ -25,12 +25,7 @@ public class DumpListActivity extends AppCompatActivity {
         setContentView(R.layout.activity_dump_list);
 
         File dumpsDir = getApplicationContext().getExternalFilesDir(null);
-        String[] filenames = dumpsDir.list(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String filename) {
-                return filename.matches(Dump.FILENAME_REGEXP);
-            }
-        });
+        String[] filenames = dumpsDir.list((dir, filename) -> filename.matches(Dump.FILENAME_REGEXP));
 
 //        // setup toolbar
 //        toolbar = (Toolbar)findViewById(R.id.toolbar);
@@ -49,16 +44,13 @@ public class DumpListActivity extends AppCompatActivity {
 
         dumpListView.setAdapter(dumpListAdapter);
         dumpListView.setClickable(true);
-        dumpListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                DumpListAdapter.DumpListFilename filename = (DumpListAdapter.DumpListFilename) dumpListView.getItemAtPosition(position);
-                String selectedFilename = filename.getFilename();
-                Intent intent = new Intent(MainActivity.INTENT_READ_DUMP);
-                intent.putExtra("filename", selectedFilename);
-                setResult(RESULT_OK, intent);
-                finish();
-            }
+        dumpListView.setOnItemClickListener((parent, view, position, id) -> {
+            DumpListAdapter.DumpListFilename filename = (DumpListAdapter.DumpListFilename) dumpListView.getItemAtPosition(position);
+            String selectedFilename = filename.getFilename();
+            Intent intent = new Intent(MainActivity.INTENT_READ_DUMP);
+            intent.putExtra("filename", selectedFilename);
+            setResult(RESULT_OK, intent);
+            finish();
         });
     }
 }

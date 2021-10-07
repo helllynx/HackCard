@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Environment
 import androidx.annotation.RequiresApi
 import java.io.*
+import java.lang.Exception
 import java.util.*
 import kotlin.experimental.and
 import kotlin.math.floor
@@ -26,6 +27,9 @@ class Dump(
 
     private fun parse() { // block#0 bytes#3-6
         if (data.isEmpty())
+            return
+
+        if (data[0].size < 6 || data[1].size < 10)
             return
 
         cardNumber = intval(
@@ -55,28 +59,38 @@ class Dump(
 ////            lastUsageDate = null
 //        }
         // block#1 bytes#8.5-10.5 (??)
-        balance = intval(
-            (data[1][8] and 15),
-            data[1][9],  //  87654321
-            (data[1][10] and 248.toByte())
-        ) / 0xC8
+        balance = try {
+            intval(
+                (data[1][8] and 15),
+                data[1][9],  //  87654321
+                (data[1][10] and 248.toByte())
+            ) / 0xC8
+        } catch (e: Exception) {
+            e.printStackTrace()
+            -1
+        }
+
     }
 
     @Throws(IOException::class)
     fun write(tag: Tag) {
-        val mfc = getMifareClassic(tag)
-        if (!Arrays.equals(tag.id, uid)) {
-            throw IOException(
-                "Card UID mismatch:"
-                        + tag.id.toHex() + " (card) != "
-                        + uid.toHex() + " (dump)"
-            )
-        }
-        val numBlocksToWrite =
-            BLOCK_COUNT - 1 // do not overwrite last block (keys)
-        val startBlockIndex = mfc.sectorToBlock(SECTOR_INDEX)
-        for (i in 0 until numBlocksToWrite) {
-            mfc.writeBlock(startBlockIndex + i, data[i])
+        var mfc: MifareClassic? = null
+        try {
+            mfc = getMifareClassic(tag)
+            if (!Arrays.equals(tag.id, uid)) {
+                throw IOException(
+                    "Card UID mismatch:"
+                            + tag.id.toHex() + " (card) != "
+                            + uid.toHex() + " (dump)"
+                )
+            }
+            val numBlocksToWrite = BLOCK_COUNT - 1 // do not overwrite last block (keys)
+            val startBlockIndex = mfc.sectorToBlock(SECTOR_INDEX)
+            for (i in 0 until numBlocksToWrite) {
+                mfc.writeBlock(startBlockIndex + i, data[i])
+            }
+        } finally {
+            if (mfc?.isConnected == true) mfc.close()
         }
     }
 
@@ -209,31 +223,40 @@ class Dump(
 
         @Throws(IOException::class)
         private fun getMifareClassic(tag: Tag?): MifareClassic {
-            val mfc = MifareClassic.get(tag)
-            mfc.connect()
-            // fucked up card
-            if (mfc.authenticateSectorWithKeyA(
-                    SECTOR_INDEX,
-                    KEY_0
-                ) && mfc.authenticateSectorWithKeyB(
-                    SECTOR_INDEX,
-                    KEY_0
-                )
-            ) {
-                return mfc
+            var mfc: MifareClassic? = null
+            try {
+                mfc?.close()
+                mfc = MifareClassic.get(tag)
+                if (mfc == null) throw Exception("Cant get card MifareClassic.get(tag)")
+                mfc.connect()
+                // fucked up card
+                if (mfc.authenticateSectorWithKeyA(
+                        SECTOR_INDEX,
+                        KEY_0
+                    ) && mfc.authenticateSectorWithKeyB(
+                        SECTOR_INDEX,
+                        KEY_0
+                    )
+                ) {
+                    return mfc
+                }
+                // good card
+                if (mfc.authenticateSectorWithKeyA(
+                        SECTOR_INDEX,
+                        KEY_A
+                    ) && mfc.authenticateSectorWithKeyB(
+                        SECTOR_INDEX,
+                        KEY_B
+                    )
+                ) {
+                    return mfc
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                if (mfc?.isConnected == true) mfc.close()
             }
-            // good card
-            if (mfc.authenticateSectorWithKeyA(
-                    SECTOR_INDEX,
-                    KEY_A
-                ) && mfc.authenticateSectorWithKeyB(
-                    SECTOR_INDEX,
-                    KEY_B
-                )
-            ) {
-                return mfc
-            }
-            throw IOException("No permissions, fucked up card!")
+
+            throw IOException("Can't auth properly")
         }
 
         @JvmStatic
